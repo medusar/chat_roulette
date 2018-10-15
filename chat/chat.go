@@ -2,16 +2,14 @@ package chat
 
 import (
 	"fmt"
+	"github.com/gorilla/websocket"
 	"github.com/longda/markov"
+	"html/template"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"time"
-
-	"github.com/gorilla/websocket"
-
-	"html/template"
 )
 
 const LISTEN_ADDR = "localhost:4000"
