@@ -42,9 +42,25 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type socket struct {
-	io.Reader
-	io.Writer
+	conn *websocket.Conn
 	done chan bool
+}
+
+func (s socket) Read(b []byte) (int, error) {
+	_, msg, err := s.conn.ReadMessage()
+	if err != nil {
+		return 0, err
+	}
+	copy(b, msg)
+	return len(b), nil
+}
+
+func (s socket) Write(b []byte) (int, error) {
+	err := s.conn.WriteMessage(websocket.TextMessage, b)
+	if err != nil {
+		return 0, err
+	}
+	return len(b), nil
 }
 
 func (s socket) Close() error {
@@ -62,34 +78,10 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade:", err)
 		return
 	}
-	defer c.Close()
-
-	conn := c.UnderlyingConn()
-
-	reader, writer := io.Pipe()
-	go func() {
-		_, err := io.Copy(io.MultiWriter(writer, chain), conn)
-		//log.Fatal(err)
-		writer.CloseWithError(err)
-	}()
-
-	s := socket{reader, conn, make(chan bool)}
+	s := socket{conn: c, done: make(chan bool)}
 	go match(s)
 	<-s.done
 }
-
-//
-//func socketHandler(ws *websocket.Conn) {
-//	r, w := io.Pipe()
-//	go func() {
-//		_, err := io.Copy(io.MultiWriter(w, chain), ws)
-//		w.CloseWithError(err)
-//	}()
-//
-//	s := socket{r, ws, make(chan bool)}
-//	go match(s)
-//	<-s.done
-//}
 
 var partner = make(chan io.ReadWriteCloser)
 
