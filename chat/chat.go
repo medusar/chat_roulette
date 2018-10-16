@@ -39,13 +39,12 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type socket struct {
-	conn *websocket.Conn
-	done chan bool
+type wsCon struct {
+	ws *websocket.Conn
 }
 
-func (s socket) Read(b []byte) (int, error) {
-	_, msg, err := s.conn.ReadMessage()
+func (s *wsCon) Read(b []byte) (int, error) {
+	_, msg, err := s.ws.ReadMessage()
 	if err != nil {
 		return 0, err
 	}
@@ -53,12 +52,30 @@ func (s socket) Read(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (s socket) Write(b []byte) (int, error) {
-	err := s.conn.WriteMessage(websocket.TextMessage, b)
+func (s *wsCon) Write(b []byte) (int, error) {
+	err := s.ws.WriteMessage(websocket.TextMessage, b)
 	if err != nil {
 		return 0, err
 	}
 	return len(b), nil
+}
+
+func (s *wsCon) Close() error {
+	return s.ws.Close()
+}
+
+type socket struct {
+	r    io.Reader
+	w    io.Writer
+	done chan bool
+}
+
+func (s socket) Read(b []byte) (int, error) {
+	return s.r.Read(b)
+}
+
+func (s socket) Write(b []byte) (int, error) {
+	return s.w.Write(b)
 }
 
 func (s socket) Close() error {
@@ -76,7 +93,17 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade:", err)
 		return
 	}
-	s := socket{conn: c, done: make(chan bool)}
+
+	ws := &wsCon{ws: c}
+
+	//!!! how to use Pipe, when and how?
+	rd, wr := io.Pipe()
+	go func() {
+		_, err := io.Copy(io.MultiWriter(wr, chain), ws)
+		wr.CloseWithError(err)
+	}()
+
+	s := &socket{r: rd, w: ws, done: make(chan bool)}
 	go match(s)
 	<-s.done
 }

@@ -11,3 +11,6 @@
 - Add user system for those want to be a normal user instead of a temporary one.
 - Save chat history into db.
 - Others ...
+
+- version 1: with a robot
+- version 2: without a robot
