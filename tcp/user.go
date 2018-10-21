@@ -20,12 +20,13 @@ func RandomName(c net.Conn) string {
 	return names[rand.Intn(len(names))] + "@" + strings.Split(c.RemoteAddr().String(), ":")[0]
 }
 
-// user with a random name
+// User with a random name
 type User struct {
 	Con  net.Conn
 	Name string
 }
 
+// Wrap a Con into a User
 func New(c net.Conn) *User {
 	return &User{Con: c, Name: RandomName(c)}
 }
@@ -38,8 +39,11 @@ func (u *User) Read(p []byte) (n int, err error) {
 	}
 	// Each time read some data, add userName before the msg
 	// It is import to use `p[:n]`, if use `string(p)`, it would
-	// contain all the blank data into the string
+	// contain all the blank data into the string, which is too
+	// large and will soon exceed the limit
 	msg := fmt.Sprintln("[" + u.Name + "]: " + string(p[:n]))
+	// Reread after u.Con.Read, will override the byte slice
+	// Is there any better way?
 	n, err = strings.NewReader(msg).Read(p)
 	return
 }
@@ -54,6 +58,7 @@ func (u *User) Close() error {
 	return u.Con.Close()
 }
 
+//Write msg to the Con, with a new line character appended
 func (u *User) WriteMsg(msg string) (int, error) {
 	return u.Con.Write([]byte(fmt.Sprintln(msg)))
 }
