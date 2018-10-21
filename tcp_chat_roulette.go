@@ -5,26 +5,22 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 var partner = make(chan io.ReadWriteCloser)
 
 func match(c io.ReadWriteCloser) {
-	fmt.Fprint(c, "Waiting for a partner...")
+	fmt.Fprintln(c, "Waiting for a partner...")
 	select {
 	case partner <- c:
-		// now handled by the other goroutine
 	case p := <-partner:
 		chat(p, c)
+	case <-time.After(5 * time.Second):
+		fmt.Fprintln(c, "no one is available, close")
+		c.Close()
 	}
 }
-
-//func chat(a, b io.ReadWriteCloser) {
-//	fmt.Fprintln(a, "Found one! Say hi.")
-//	fmt.Fprintln(b, "Found one! Say hi.")
-//	go io.Copy(a, b) //async send data from b to a
-//	io.Copy(b, a) //sync send data from a to b
-//}
 
 func chat(a, b io.ReadWriteCloser) {
 	fmt.Fprintln(a, "Found one! Say hi.")
@@ -43,7 +39,8 @@ func chat(a, b io.ReadWriteCloser) {
 }
 
 func cp(w io.Writer, r io.Reader, errc chan<- error) {
-	_, err := io.Copy(w, r)
+	wr, err := io.Copy(w, r)
+	log.Println("wr:", wr)
 	errc <- err
 }
 
